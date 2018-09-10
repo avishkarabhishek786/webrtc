@@ -1,0 +1,29 @@
+{
+  "name": "webrtc",
+  "version": "1.0.0",
+  "description": "Playing with webrtc",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1", 
+    "start": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/avishkarabhishek786/webrtc.git"
+  },
+  "keywords": [
+    "webrtc",
+    "nodejs",
+    "p2p"
+  ],
+  "author": "Abhishek Sinha",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/avishkarabhishek786/webrtc/issues"
+  },
+  "homepage": "https://github.com/avishkarabhishek786/webrtc#readme",
+  "dependencies": {
+    "ejs": "^2.6.1",
+    "express": "^4.16.3"
+  }
+}
