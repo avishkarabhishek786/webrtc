@@ -4,7 +4,7 @@
   "description": "Playing with webrtc",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1", 
+    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon index.js"
   },
   "repository": {
@@ -24,6 +24,7 @@
   "homepage": "https://github.com/avishkarabhishek786/webrtc#readme",
   "dependencies": {
     "ejs": "^2.6.1",
-    "express": "^4.16.3"
+    "express": "^4.16.3",
+    "ws": "^6.0.0"
   }
 }

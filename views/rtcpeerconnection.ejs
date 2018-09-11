@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>RTC Peer Connection</title>
+</head>
+
+<body>
+
+    <div>
+        <input type="text" id="loginInput" />
+        <button id="loginBtn">Login</button>
+    </div>
+
+    <div>
+        <input type="text" id="otherUsernameInput" />
+        <button id="connectToOtherUsernameBtn">Establish connection</button>
+    </div>
+
+    <script>
+        var connection = new WebSocket('ws://localhost:9090');
+        var name = "";
+        var loginInput = document.querySelector("#loginInput");
+        var loginBtn = document.querySelector("#loginBtn");
+        var otherUsernameInput = document.querySelector("#otherUsernameInput")
+        var connectToOtherUsernameBtn = document.querySelector("#connectToOtherUsernameBtn")
+        var connectedUser, myConnection;
+
+        //When a user click the login button
+        loginBtn.addEventListener("click", function (e) {
+            name = loginInput.value;
+            if (name.length > 0) {
+                send({
+                    type: "login",
+                    name: name
+                });
+            }
+        });
+
+        //handle messages from the server
+        connection.onmessage = function (message) {
+            console.log("Got message", message.data);
+            var data = JSON.parse(message.data);
+
+            switch (data.type) {
+                case "login":
+                    onLogin(data.success)
+                    break;
+                case "offer":
+                    onOffer(data.offer, data.name);
+                    break;
+                case "answer":
+                    onAnswer(data.answer);
+                    break;
+                case "candidate":
+                    onCandidate(data.candidate);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        //when a user logs in
+        function onLogin(success) {
+            if (success === false) {
+                alert("Please try a different username!")
+            } else {
+
+                console.log("ok");
+                
+                // create the RTCPeerConnection Object
+                var configuration = {
+                    "iceservers": [{
+                        "url": "stun:stun.1.google.com:19302"
+                    }]
+                }
+
+                //myConnection = new webkitRTCPeerConnection(configuration)
+                myConnection = new mozRTCPeerConnection(configuration)
+                console.log("RTCPeerConnection object was created");
+                console.log(myConnection);
+
+            }
+        }
+
+        // Alias for sending messages in JSON format 
+        function send(message) {
+
+            if (connectedUser) {
+                message.name = connectedUser;
+            }
+
+            connection.send(JSON.stringify(message));
+        };
+
+    </script>
+
+</body>
+
+</html>
