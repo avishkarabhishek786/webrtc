@@ -10,59 +10,65 @@
 
 <body>
 
-    <h4>Take Profile Picture</h4>
+    <h4>Chat Room</h4>
 
     <video id="videoTag" autoplay></video>
 
-    <button id="takeProfilePictureButton" type="button" autofocus="true">Take Picture</button>
-    
-    <canvas id="profilePicCanvas" style="display:none;"></canvas>
+    <div>
+        <label for="myName">Your Name:</label>
+        <input type="text" id="myName">
 
-    <div><img id="profilePictureOutput"></div>
+        <label for="myMessage">Message:</label>
+        <input type="text" id="myMessage">
 
+        <input type="submit" id="sendMessage">
+
+        <div id="chatArea">Mesage Output: <br></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script>
+        var socket = io();
+
         var videoArea = document.querySelector("video");
-        var profilePicCanvas = document.querySelector("#profilePicCanvas");
-        var profilePictureOutput = document.querySelector("#profilePictureOutput");
-        var takeProfilePicture = document.querySelector("#takeProfilePictureButton");
-        var videoTag = document.querySelector("#videoTag");
+        var myName = document.querySelector("#myName");
+        var myMessage = document.querySelector("#myMessage");
+        var sendMessage = document.querySelector("#sendMessage");
+        var chatArea = document.querySelector("#chatArea");
+        var ROOM = "chat";
 
-        var width = 240;
-        var height = 0;  // clculated based on image ratio
-        var streaming = false; // true when video is loaded
+        //startStream();
 
-        videoTag.addEventListener('canplay', function(e) {
-            if (!streaming) {
-                height = videoTag.videoHeight / (videoTag.videoWidth/width);
-
-                if (isNaN(height)) {
-                    height = width/(4/3);
+        socket.on('connect', function () {
+            console.log('Connected to server!');
+            socket.emit('ready', ROOM, function (err) {
+                if (err) {
+                    alert(err);
                 }
+                console.log('No error');
+            });
+        })
 
-                videoTag.setAttribute('width', width);
-                videoTag.setAttribute('height', height);
-                profilePicCanvas.setAttribute('width', width);
-                profilePicCanvas.setAttribute('height', height);
-                streaming = true;
-            }
-        }, false);
+        socket.on('disconnect', function () {
+            console.log('Disconnected to server!');
+        });
 
-        takeProfilePicture.addEventListener("click", function(e) {
+        socket.on('announce', function (data) {
+            displayMessage(data.message);
+        });
+
+        function displayMessage(message) {
+            chatArea.innerHTML = chatArea.innerHTML + "<br>" + message;
+        }
+
+        socket.on('message', function(data) {
+            displayMessage(data.author + ': ' + data.message)
+        });
+
+        sendMessage.addEventListener("click", function(e) {
+            socket.emit('send', {"author":myName.value, "message":myMessage.value, "room":ROOM});
             e.preventDefault();
-
-            var context = profilePicCanvas.getContext('2d');
-            if (width && height) {
-                profilePicCanvas.width = width;
-                profilePicCanvas.height = height;
-                context.drawImage(videoTag, 0, 0, width, height);
-
-                var data = profilePicCanvas.toDataURL('image/png');
-                profilePictureOutput.setAttribute('src', data);
-            }
-
         }, false);
-
-        startStream();
 
         function startStream() {
             navigator.getUserMedia = navigator.getUserMedia ||
@@ -71,23 +77,16 @@
 
             var constraint = {
                 audio: false,
-                video: {
-                    mandatory: {
-                        minWidth: 240,
-                        maxWidth: 240,
-                        minHeight: 240,
-                        maxHeight: 240
-                    }
-                }
+                video: true
             }
 
             navigator.getUserMedia(constraint, onSuccess, onError);
-
         }
 
         function onSuccess(stream) {
             console.log("Success! We have a stream.");
-            videoArea.src = window.URL.createObjectURL(stream);
+            //videoArea.src = window.URL.createObjectURL(stream);
+            videoArea.srcObject = stream;
             videoArea.play();
         }
 
