@@ -24,7 +24,8 @@ module.exports = function (io) {
 
         socket.on('ready', (params, callback) => {
         
-            socket.join(params)
+            socket.join(params.chat_room)
+            socket.join(params.signal_room)
             // socket.emit runs function for current user and not for rest users
             socket.broadcast.to(params).emit('announce', {message: 'New client in the '+params+' room joined.'})
         
@@ -34,6 +35,13 @@ module.exports = function (io) {
             io.to(params.room).emit('message', {
                 message: params.message,
                 author: params.author
+            })
+        })
+
+        socket.on('signal', (params)=>{
+            socket.broadcast.to(params.room).emit('signalling_message', {
+                type: params.type,
+                message: params.message
             })
         })
 
