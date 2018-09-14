@@ -96,7 +96,7 @@
             displaySignalMessage("Starting signalling...");
 
             //rtcPeerConn = new webkitRTCPeerConnection(configuration);
-            rtcPeerConn = new mozRTCPeerConnection(configuration);
+            rtcPeerConn = new webkitRTCPeerConnection(configuration);
 
             // Send any ice candidates to other peer
             rtcPeerConn.onicecandidate = function(evt) {
