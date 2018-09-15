@@ -9,9 +9,14 @@ router.get('/', (req, res) => {
     })
 })
 
-router.get('/ready', function (req, res) {
-    console.log("ready");
-
+router.get('/webcam', function (req, res) {
+    
+    res.render('webcam.ejs', {
+        data: {},
+        errors: {},
+        title: 'Webcam'
+    })
+    
 })
 
 module.exports = function (io) {
@@ -28,7 +33,7 @@ module.exports = function (io) {
             socket.join(params.signal_room)
             // socket.emit runs function for current user and not for rest users
             socket.broadcast.to(params).emit('announce', {message: 'New client in the '+params+' room joined.'})
-        
+            console.log("ready...");
         })
 
         socket.on('send', (params, callback)=>{
@@ -43,6 +48,7 @@ module.exports = function (io) {
                 type: params.type,
                 message: params.message
             })
+            console.log("signal....");
         })
 
     })
