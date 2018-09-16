@@ -19,6 +19,16 @@ router.get('/webcam', function (req, res) {
     
 })
 
+router.get('/datachannel', function (req, res) {
+    
+    res.render('datachannel.ejs', {
+        data: {},
+        errors: {},
+        title: 'Data Channel API'
+    })
+    
+})
+
 module.exports = function (io) {
     io.on('connection', function (socket) {
         console.log('connected!');
@@ -31,8 +41,9 @@ module.exports = function (io) {
         
             socket.join(params.chat_room)
             socket.join(params.signal_room)
+            
             // socket.emit runs function for current user and not for rest users
-            socket.broadcast.to(params).emit('announce', {message: 'New client in the '+params+' room joined.'})
+            socket.broadcast.to(params.chat_room).emit('announce', {message: 'New client in the '+params+' room joined.'})
             console.log("ready...");
         })
 
