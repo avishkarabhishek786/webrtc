@@ -20,6 +20,8 @@
         <button id="hangupButton">Hang Up</button>
     </div>
 
+    <div id="chatArea">Mesage Output: <br></div>
+
     <div id="signalling_area">Signalling messages: <br></div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -41,6 +43,9 @@
             offerToReceiveVideo: 1
         };
         let startTime;
+
+        var chatArea = document.querySelector("#chatArea");
+        var signallingArea = document.querySelector("#signalling_area");
 
         var ROOM = "chat";
         var SIGNAL_ROOM = "signal_room";
@@ -112,10 +117,10 @@
             };
 
             pc1 = new RTCPeerConnection(servers);
-            console.log('Created local peer connection object pc1');
+            console.log('Created local peer connection object pc1', pc1);
             pc1.onicecandidate = e => onIceCandidate(pc1, e);
             pc2 = new RTCPeerConnection(servers);
-            console.log('Created remote peer connection object pc2');
+            console.log('Created remote peer connection object pc2', pc2);
             pc2.onicecandidate = e => onIceCandidate(pc2, e);
 
             pc1.oniceconnectionstatechange = e => onIceStateChange(pc1, e);
@@ -239,6 +244,20 @@
             pc2.setLocalDescription(desc).then(() => onSetLocalSuccess(pc2), onSetSessionDescriptionError);
             console.log('pc1 setRemoteDescription start');
             pc1.setRemoteDescription(desc).then(() => onSetRemoteSuccess(pc1), onSetSessionDescriptionError);
+        }
+
+        socket.on('announce', function (data) {
+            displayMessage(data.message);
+        });
+
+        function displayMessage(message) {
+            console.log(message);
+            chatArea.innerHTML += chatArea.innerHTML + "<br>" + message;
+        }
+        
+        function displaySignalMessage(message) {
+            console.log(message);
+            signallingArea.innerHTML += signallingArea.innerHTML + "<br>" + message;
         }
 
         function hangup() {

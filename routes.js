@@ -42,8 +42,8 @@ module.exports = function (io) {
             socket.join(params.chat_room)
             socket.join(params.signal_room)
             
-            // socket.emit runs function for current user and not for rest users
-            socket.broadcast.to(params.chat_room).emit('announce', {message: 'New client in the '+params+' room joined.'})
+            // socket.emit runs function for current user and not for rest users        
+            socket.broadcast.to(params.signal_room).emit('announce', {message: 'New client in the '+params.signal_room+' room joined.'})
             console.log("ready...");
         })
 
