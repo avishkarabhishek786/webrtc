@@ -60,6 +60,7 @@ module.exports = function (io) {
                 message: params.message
             })
             console.log("signal....");
+            console.log(params);
         })
 
     })
