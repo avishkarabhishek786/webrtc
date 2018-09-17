@@ -19,6 +19,16 @@ router.get('/webcam', function (req, res) {
     
 })
 
+router.get('/webcam2', function (req, res) {
+    
+    res.render('webcam2.ejs', {
+        data: {},
+        errors: {},
+        title: 'Webcam 2'
+    })
+    
+})
+
 router.get('/datachannel', function (req, res) {
     
     res.render('datachannel.ejs', {
