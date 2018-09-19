@@ -19,6 +19,16 @@ router.get('/webcam', function (req, res) {
     
 })
 
+router.get('/webcam3', function (req, res) {
+    
+    res.render('webcam3.ejs', {
+        data: {},
+        errors: {},
+        title: 'Webcam'
+    })
+    
+})
+
 module.exports = function (io) {
     io.on('connection', function (socket) {
         console.log('connected!');

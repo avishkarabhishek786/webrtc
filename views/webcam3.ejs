@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+
+<body>
+    <h3>Webcam</h3>
+
+    <video id="selfView" playsinline autoplay muted></video>
+    <video id="remoteView" playsinline autoplay></video>
+
+    <div>
+        <button id="startButton">Start</button>
+        <button id="callButton">Call</button>
+        <button id="hangupButton">Hang Up</button>
+    </div>
+
+    <div id="chatArea">Mesage Output: <br></div>
+
+    <div id="signalling_area">Signalling messages: <br></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const selfView = document.querySelector("#selfView");
+        const remoteView = document.querySelector("#remoteView");
+
+        const startButton = document.getElementById('startButton');
+        // const callButton = document.getElementById('callButton');
+        // const hangupButton = document.getElementById('hangupButton');
+
+        var chatArea = document.querySelector("#chatArea");
+        var signallingArea = document.querySelector("#signalling_area");
+
+        var ROOM = "chat";
+        var SIGNAL_ROOM = "signal_room";
+
+        // Signaling Channel (PubNub, Firebase, Socket.io, etc.)
+        function SignalingChannel(peerConnection) {
+            // Setup the signaling channel here
+            this.peerConnection = peerConnection;
+
+            this.peerConnection.on('connect', function () {
+                console.log('Connected to server!');
+
+                startButton.onclick = start;
+                // callButton.onclick = call;
+                // hangupButton.onclick = hangup;
+
+            });
+
+            this.peerConnection.emit('ready', {
+                "chat_room": ROOM,
+                "signal_room": SIGNAL_ROOM
+            }, logError);
+
+            this.peerConnection.on('disconnect', function () {
+                console.log('Disconnected to server!');
+            });
+
+        }
+
+        SignalingChannel.prototype.send = function (message) {
+            // Send messages using your favorite real-time network
+            //this.peerConnection.emit(name, message, logError);
+            this.peerConnection.emit('message', message, logError);
+        };
+
+        // SignalingChannel.prototype.onmessage = function (message) {
+        //     // If we get a sdp we have to sign and return it
+        //     if (message.sdp != null) {
+        //         var that = this;
+        //         this.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
+        //             that.peerConnection.createAnswer(function (description) {
+        //                 that.send(description);
+        //             });
+        //         });
+        //     } else {
+        //         this.peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        //     }
+        // };
+
+        const socket = io();
+        const signaling = new SignalingChannel(socket); // handles JSON.stringify/parse
+        const constraints = {
+            audio: false,
+            video: true
+        };
+        const configuration = {
+            iceServers: [{
+                urls: 'stun:stun.l.google.com:19302'
+            }]
+        };
+
+        // call start() to initiate
+        async function start() {
+            pc = new RTCPeerConnection(configuration);
+
+            // send any ice candidates to the other peer
+            pc.onicecandidate = (event) => {
+                signaling.send(JSON.stringify({
+                    candidate: event.candidate
+                }));
+            };
+
+            // let the "negotiationneeded" event trigger offer generation
+            pc.onnegotiationneeded = async () => {
+                try {
+                    await pc.setLocalDescription(await pc.createOffer());
+                    // send the offer to the other peer
+                    signaling.send(JSON.stringify({
+                        desc: pc.localDescription
+                    }));
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+
+            try {
+                // get a local stream, show it in a self-view and add it to be sent
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: true
+                });
+                selfView.srcObject = stream;
+                // Render the media even before ontrack fires.
+                remoteView.srcObject = new MediaStream(pc.getReceivers().map((r) => r.track));
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        signaling.onmessage = async (event) => {
+            if (!pc) start();
+
+            try {
+                const message = JSON.parse(event.data);
+                if (message.desc) {
+                    const desc = message.desc;
+
+                    // if we get an offer, we need to reply with an answer
+                    if (desc.type == 'offer') {
+                        await pc.setRemoteDescription(desc);
+                        await pc.setLocalDescription(await pc.createAnswer());
+                        signaling.send(JSON.stringify({
+                            desc: pc.localDescription
+                        }));
+                    } else {
+                        await pc.setRemoteDescription(desc);
+                    }
+                } else {
+                    await pc.addIceCandidate(message.candidate);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+
+        function logError(error) {
+            console.error(error);
+        }
+
+        // sendMessage.addEventListener("click", function(e) {
+        //     socket.emit('send', {"author":myName.value, "message":myMessage.value, "room":ROOM});
+        //     e.preventDefault();
+        // }, false);
+
+        // Socket calls
+
+        socket.on('message', (params) => {
+            console.log("io message");
+            signaling.onmessage(params);
+        });
+    </script>
+
+</body>
+
+</html>
