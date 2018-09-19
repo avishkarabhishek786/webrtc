@@ -38,6 +38,7 @@
 
         var ROOM = "chat";
         var SIGNAL_ROOM = "signal_room";
+        let pc;
 
         // Signaling Channel (PubNub, Firebase, Socket.io, etc.)
         function SignalingChannel(peerConnection) {
@@ -105,6 +106,10 @@
                 signaling.send(JSON.stringify({
                     candidate: event.candidate
                 }));
+                console.log("ice candidate sent: ", JSON.stringify({
+                    candidate: event.candidate
+                }));
+                
             };
 
             // let the "negotiationneeded" event trigger offer generation
@@ -115,9 +120,13 @@
                     signaling.send(JSON.stringify({
                         desc: pc.localDescription
                     }));
+                    console.log("sent local desc:  ", JSON.stringify({
+                        desc: pc.localDescription
+                    }));
+
                 } catch (err) {
                     console.error(err);
-                }
+                  }
             };
 
             try {
@@ -127,7 +136,11 @@
                     video: true
                 });
                 selfView.srcObject = stream;
+
+                stream.getTracks().forEach((track) => pc.addTrack(track, stream));
                 // Render the media even before ontrack fires.
+                console.log("media render...");
+                
                 remoteView.srcObject = new MediaStream(pc.getReceivers().map((r) => r.track));
             } catch (err) {
                 console.error(err);
@@ -138,25 +151,35 @@
             if (!pc) start();
 
             try {
-                const message = JSON.parse(event.data);
-                console.log("message", message);
+                //console.log(typeof event);
+                //console.log(event);
                 
+                const message = JSON.parse(event.data);
+
                 if (message.desc) {
                     const desc = message.desc;
                     console.log("desc", desc);
                     
                     // if we get an offer, we need to reply with an answer
                     if (desc.type == 'offer') {
+                        console.log("offer");
+                        
                         await pc.setRemoteDescription(desc);
                         await pc.setLocalDescription(await pc.createAnswer());
                         signaling.send(JSON.stringify({
                             desc: pc.localDescription
                         }));
                     } else {
+                        console.log("answer", desc);
+                        
                         await pc.setRemoteDescription(desc);
                     }
                 } else {
-                    await pc.addIceCandidate(message.candidate);
+                    console.log("ice candidate", message.candidate);
+                    
+                    if (message.candidate) {
+                        await pc.addIceCandidate(message.candidate);
+                    }
                 }
             } catch (err) {
                 console.error(err);
