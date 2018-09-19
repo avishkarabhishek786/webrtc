@@ -54,6 +54,7 @@ module.exports = function (io) {
         // })
 
         socket.on('message', (message)=>{
+            console.log("send message", message);
             socket.broadcast.emit('message', message);
         })
 

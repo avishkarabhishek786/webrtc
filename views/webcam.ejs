@@ -11,8 +11,8 @@
 <body>
     <h3>Webcam</h3>
 
-    <video id="localVideo" playsinline autoplay muted></video>
-    <video id="remoteVideo" playsinline autoplay></video>
+    <video id="selfView" playsinline autoplay muted></video>
+    <video id="remoteView" playsinline autoplay></video>
 
     <div>
         <button id="startButton">Start</button>
@@ -26,9 +26,13 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const startButton = document.getElementById('startButton');
-        const callButton = document.getElementById('callButton');
-        const hangupButton = document.getElementById('hangupButton');
+
+        const selfView = document.querySelector("#selfView");
+        const remoteView = document.querySelector("#remoteView");
+
+         const startButton = document.getElementById('startButton');
+        // const callButton = document.getElementById('callButton');
+        // const hangupButton = document.getElementById('hangupButton');
 
         var chatArea = document.querySelector("#chatArea");
         var signallingArea = document.querySelector("#signalling_area");
@@ -39,20 +43,21 @@
         // Signaling Channel (PubNub, Firebase, Socket.io, etc.)
         function SignalingChannel(peerConnection) {
             // Setup the signaling channel here
-            this.peerConnection = io();
+            this.peerConnection = peerConnection;
 
             this.peerConnection.on('connect', function () {
                 console.log('Connected to server!');
 
-                startButton.onclick = start;
-                callButton.onclick = call;
-                hangupButton.onclick = hangup;
+                 startButton.onclick = start;
+                // callButton.onclick = call;
+                // hangupButton.onclick = hangup;
 
-                this.peerConnection.emit('ready', {
-                    "chat_room": ROOM,
-                    "signal_room": SIGNAL_ROOM
-                }, logError);
-            })
+            });
+
+            this.peerConnection.emit('ready', {
+                "chat_room": ROOM,
+                "signal_room": SIGNAL_ROOM
+            }, logError);
 
             this.peerConnection.on('disconnect', function () {
                 console.log('Disconnected to server!');
@@ -80,10 +85,10 @@
         //     }
         // };
 
-
-        const signaling = new SignalingChannel(); // handles JSON.stringify/parse
+        const socket = io();    
+        const signaling = new SignalingChannel(socket); // handles JSON.stringify/parse
         const constraints = {
-            audio: true,
+            audio: false,
             video: true
         };
         const configuration = {
@@ -105,6 +110,8 @@
             try {
                 await pc.setLocalDescription(await pc.createOffer());
                 // send the offer to the other peer
+                console.log(pc.localDescription);
+                
                 signaling.send({
                     desc: pc.localDescription
                 });
@@ -138,6 +145,8 @@
         }) => {
             try {
                 if (desc) {
+                    console.log(desc);
+                    
                     // if we get an offer, we need to reply with an answer
                     if (desc.type == 'offer') {
                         await pc.setRemoteDescription(desc);
@@ -153,6 +162,8 @@
                         console.log('Unsupported SDP type. Your code may differ here.');
                     }
                 } else if (candidate) {
+                    console.log(candidate);
+                    
                     await pc.addIceCandidate(candidate);
                 }
             } catch (err) {
@@ -164,10 +175,17 @@
             console.error(error);
         }
 
-        sendMessage.addEventListener("click", function(e) {
-            socket.emit('send', {"author":myName.value, "message":myMessage.value, "room":ROOM});
-            e.preventDefault();
-        }, false);
+        // sendMessage.addEventListener("click", function(e) {
+        //     socket.emit('send', {"author":myName.value, "message":myMessage.value, "room":ROOM});
+        //     e.preventDefault();
+        // }, false);
+
+        // Socket calls
+
+        socket.on('message', (params)=>{
+            console.log("io message");
+            signaling.onmessage(params);
+        });
 
     </script>
 
