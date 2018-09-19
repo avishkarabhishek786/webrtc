@@ -26,294 +26,149 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        'use strict';
-
-        var socket = io();
-
         const startButton = document.getElementById('startButton');
         const callButton = document.getElementById('callButton');
         const hangupButton = document.getElementById('hangupButton');
-        callButton.disabled = true;
-        hangupButton.disabled = true;
-        let localStream;
-        let pc1;
-        let pc2;
-        const offerOptions = {
-            offerToReceiveAudio: 1,
-            offerToReceiveVideo: 1
-        };
-        let startTime;
 
         var chatArea = document.querySelector("#chatArea");
         var signallingArea = document.querySelector("#signalling_area");
 
         var ROOM = "chat";
         var SIGNAL_ROOM = "signal_room";
-        //var rtcPeerConn;
 
-        socket.on('connect', function () {
-            console.log('Connected to server!');
+        // Signaling Channel (PubNub, Firebase, Socket.io, etc.)
+        function SignalingChannel(peerConnection) {
+            // Setup the signaling channel here
+            this.peerConnection = io();
 
-            startButton.onclick = start;
-            callButton.onclick = call;
-            hangupButton.onclick = hangup;
+            this.peerConnection.on('connect', function () {
+                console.log('Connected to server!');
 
-            socket.emit('ready', {
-                "chat_room": ROOM,
-                "signal_room": SIGNAL_ROOM
-            }, function (err) {
-                if (err) {
-                    alert(err);
-                }
-                console.log('No error');
+                startButton.onclick = start;
+                callButton.onclick = call;
+                hangupButton.onclick = hangup;
+
+                this.peerConnection.emit('ready', {
+                    "chat_room": ROOM,
+                    "signal_room": SIGNAL_ROOM
+                }, logError);
+            })
+
+            this.peerConnection.on('disconnect', function () {
+                console.log('Disconnected to server!');
             });
-        })
 
-        socket.on('disconnect', function () {
-            console.log('Disconnected to server!');
+        }
+
+        SignalingChannel.prototype.send = function (message) {
+            // Send messages using your favorite real-time network
+            //this.peerConnection.emit(name, message, logError);
+            this.peerConnection.emit('message', message, logError);
+        };
+
+        // SignalingChannel.prototype.onmessage = function (message) {
+        //     // If we get a sdp we have to sign and return it
+        //     if (message.sdp != null) {
+        //         var that = this;
+        //         this.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
+        //             that.peerConnection.createAnswer(function (description) {
+        //                 that.send(description);
+        //             });
+        //         });
+        //     } else {
+        //         this.peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        //     }
+        // };
+
+
+        const signaling = new SignalingChannel(); // handles JSON.stringify/parse
+        const constraints = {
+            audio: true,
+            video: true
+        };
+        const configuration = {
+            iceServers: [{
+                urls: 'stun:stun.l.google.com:19302'
+            }]
+        };
+        const pc = new RTCPeerConnection(configuration);
+
+        // send any ice candidates to the other peer
+        pc.onicecandidate = ({
+            candidate
+        }) => signaling.send({
+            candidate
         });
 
-        socket.emit('signal', {
-            "type": "user_here",
-            "message": "Are you ready for the call?",
-            "room": SIGNAL_ROOM
-        })
+        // let the "negotiationneeded" event trigger offer generation
+        pc.onnegotiationneeded = async () => {
+            try {
+                await pc.setLocalDescription(await pc.createOffer());
+                // send the offer to the other peer
+                signaling.send({
+                    desc: pc.localDescription
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        };
 
+        // once media for a remote track arrives, show it in the remote video element
+        pc.ontrack = (event) => {
+            // don't set srcObject again if it is already set.
+            if (remoteView.srcObject) return;
+            remoteView.srcObject = event.streams[0];
+        };
 
-        function start() {
-            console.log('Requesting local stream');
-            startButton.disabled = true;
-            navigator.mediaDevices
-                .getUserMedia({
-                    audio: false,
-                    video: true
-                })
-                .then(gotStream)
-                .catch(e => alert(`getUserMedia() error: ${e.name}`));
+        // call start() to initiate
+        async function start() {
+            try {
+                // get a local stream, show it in a self-view and add it to be sent
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+                selfView.srcObject = stream;
+            } catch (err) {
+                console.error(err);
+            }
         }
 
-        function call() {
-            callButton.disabled = true;
-            hangupButton.disabled = false;
-            console.log('Starting call');
-            startTime = window.performance.now();
-            const videoTracks = localStream.getVideoTracks();
-            const audioTracks = localStream.getAudioTracks();
-            if (videoTracks.length > 0) {
-                console.log(`Using video device: ${videoTracks[0].label}`);
-            }
-            if (audioTracks.length > 0) {
-                console.log(`Using audio device: ${audioTracks[0].label}`);
-            }   
-
-            const servers = {
-                iceServers: [
-                {url: 'stun:stun.l.google.com:19302'},
-                {url: 'stun:stun1.l.google.com:19302'},
-                {url: 'stun:stun2.l.google.com:19302'},
-                {url: 'stun:stun3.l.google.com:19302'},
-                {url: 'stun:stun4.l.google.com:19302'},
-                {
-                    'url': 'turn:numb.viagenie.ca',
-                    'credential': 'pass123',
-                    'username': 'sinha.abhishek123@yahoo.com'
-                },
-                {
-                    'urls': 'turn:13.250.13.83:3478?transport=udp',
-                    'credential': 'YzYNCouZM1mhqhmseWk6',
-                    'username': 'YzYNCouZM1mhqhmseWk6'
-                },
-                {
-                    'urls': 'turn:192.158.29.39:3478?transport=tcp',
-                    'credential': 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-                    'username': '28224511:1379330808'
-                },
-                {
-                    'url': 'turn:numb.viagenie.ca',
-                    'credential': 'muazkh',
-                    'username': 'webrtc@live.com'
-                },
-                {
-                    'url': 'turn:192.158.29.39:3478?transport=udp',
-                    'credential': 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-                    'username': '28224511:1379330808'
-                },
-                {
-                    'url': 'turn:192.158.29.39:3478?transport=tcp',
-                    'credential': 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-                    'username': '28224511:1379330808'
-                },
-                {
-                    'url': 'turn:turn.bistri.com:80',
-                    'credential': 'homeo',
-                    'username': 'homeo'
-                },
-                {
-                    'url': 'turn:turn.anyfirewall.com:443?transport=tcp',
-                    'credential': 'webrtc',
-                    'username': 'webrtc'
-                },
-                {
-                    'url': 'turn:13.250.13.83:3478?transport=udp',
-                    'credential': 'YzYNCouZM1mhqhmseWk6',
-                    'username': 'YzYNCouZM1mhqhmseWk6'
+        signaling.onmessage = async ({
+            desc,
+            candidate
+        }) => {
+            try {
+                if (desc) {
+                    // if we get an offer, we need to reply with an answer
+                    if (desc.type == 'offer') {
+                        await pc.setRemoteDescription(desc);
+                        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+                        await pc.setLocalDescription(await pc.createAnswer());
+                        signaling.send({
+                            desc: pc.localDescription
+                        });
+                    } else if (desc.type == 'answer') {
+                        await pc.setRemoteDescription(desc);
+                    } else {
+                        console.log('Unsupported SDP type. Your code may differ here.');
+                    }
+                } else if (candidate) {
+                    await pc.addIceCandidate(candidate);
                 }
-                ]
-            };
-
-            pc1 = new RTCPeerConnection(servers);
-            console.log('Created local peer connection object pc1', pc1);
-            pc1.onicecandidate = e => onIceCandidate(pc1, e);
-            pc2 = new RTCPeerConnection(servers);
-            console.log('Created remote peer connection object pc2', pc2);
-            pc2.onicecandidate = e => onIceCandidate(pc2, e);
-
-            pc1.oniceconnectionstatechange = e => onIceStateChange(pc1, e);
-            pc2.oniceconnectionstatechange = e => onIceStateChange(pc2, e);
-
-            pc2.ontrack = gotRemoteStream;
-
-            localStream.getTracks().forEach(track => pc1.addTrack(track, localStream));
-            console.log('Added local stream to pc1');
-
-            console.log('pc1 createOffer start');
-            pc1.createOffer(offerOptions).then(onCreateOfferSuccess, onCreateSessionDescriptionError);
-
-        }
-
-        function getName(pc) {
-            return (pc === pc1) ? 'pc1' : 'pc2';
-        }
-
-        function getOtherPc(pc) {
-            return (pc === pc1) ? pc2 : pc1;
-        }
-
-        function gotStream(stream) {
-            console.log('Received local stream');
-            localVideo.srcObject = stream;
-            localStream = stream;
-            callButton.disabled = false;
-        }
-
-        function onIceCandidate(pc, event) {
-            getOtherPc(pc).addIceCandidate(event.candidate)
-                .then(() => onAddIceCandidateSuccess(pc, event), err => onAddIceCandidateError(pc, err));
-            console.log(`${getName(pc)} ICE candidate:\n${event.candidate ? event.candidate.candidate : '(null)'}`);
-        }
-
-        function onAddIceCandidateSuccess(pc, evt) {
-            socket.emit('signal', {
-                "type": "ice candidate",
-                "message": JSON.stringify({'candidate': evt.candidate}),
-                "room": SIGNAL_ROOM
-            });
-            console.log(`${getName(pc)} addIceCandidate success`);
-        }
-
-        function onAddIceCandidateError(pc, error) {
-            console.log(`${getName(pc)} failed to add ICE Candidate: ${error.toString()}`);
-        }
-
-        function onIceStateChange(pc, event) {
-            if (pc) {
-                socket.emit('signal', {
-                "type": "ice candidate",
-                "message": JSON.stringify({
-                    'sdp': pc.localDescription
-                }),
-                "room": SIGNAL_ROOM
-            }, logError);
-                console.log(`${getName(pc)} ICE state: ${pc.iceConnectionState}`);
-                console.log('ICE state change event: ', event);
+            } catch (err) {
+                console.error(err);
             }
-        }
-
-        function gotRemoteStream(e) {
-            if (remoteVideo.srcObject !== e.streams[0]) {
-                remoteVideo.srcObject = e.streams[0];
-                console.log('pc2 received remote stream');
-            }
-        }
-
-        function onCreateOfferSuccess(desc) {
-            console.log(`Offer from pc1 ${desc.sdp}`);
-            console.log('pc1 setLocalDescription start');
-            pc1.setLocalDescription(desc).then(() => onSetLocalSuccess(pc1), onSetSessionDescriptionError);
-            console.log('pc2 setRemoteDescription start');
-            pc2.setRemoteDescription(desc).then(() => onSetRemoteSuccess(pc2), onSetSessionDescriptionError);
-            console.log('pc2 createAnswer start');
-            // Since the 'remote' side has no media stream we need
-            // to pass in the right constraints in order for it to
-            // accept the incoming offer of audio and video.
-            pc2.createAnswer().then(onCreateAnswerSuccess, onCreateSessionDescriptionError);
-        }
+        };
 
         function logError(error) {
             console.error(error);
         }
 
-        function onSetLocalSuccess(pc) {
-            socket.emit('signal', {
-                "type": "SDP",
-                "message": JSON.stringify({
-                    'sdp': pc.localDescription
-                }),
-                "room": SIGNAL_ROOM
-            }, logError);
-            console.log(`${getName(pc)} setLocalDescription complete`);
-        }
+        sendMessage.addEventListener("click", function(e) {
+            socket.emit('send', {"author":myName.value, "message":myMessage.value, "room":ROOM});
+            e.preventDefault();
+        }, false);
 
-        function onSetRemoteSuccess(pc) {
-            socket.emit('signal', {
-                "type": "SDP",
-                "message": JSON.stringify({
-                    'sdp': pc.remoteDescription
-                }),
-                "room": SIGNAL_ROOM
-            }, logError);
-            console.log(`${getName(pc)} setRemoteDescription complete`);
-        }
-
-        function onCreateSessionDescriptionError(error) {
-            console.log(`Failed to create session description: ${error.toString()}`);
-        }
-
-        function onSetSessionDescriptionError(error) {
-            console.log(`Failed to set session description: ${error.toString()}`);
-        }
-
-        function onCreateAnswerSuccess(desc) {
-            console.log(`Answer from pc2:\n${desc.sdp}`);
-            console.log('pc2 setLocalDescription start');
-            pc2.setLocalDescription(desc).then(() => onSetLocalSuccess(pc2), onSetSessionDescriptionError);
-            console.log('pc1 setRemoteDescription start');
-            pc1.setRemoteDescription(desc).then(() => onSetRemoteSuccess(pc1), onSetSessionDescriptionError);
-        }
-
-        socket.on('announce', function (data) {
-            displayMessage(data.message);
-        });
-
-        function displayMessage(message) {
-            console.log(message);
-            chatArea.innerHTML += chatArea.innerHTML + "<br>" + message;
-        }
-        
-        function displaySignalMessage(message) {
-            console.log(message);
-            signallingArea.innerHTML += signallingArea.innerHTML + "<br>" + message;
-        }
-
-        function hangup() {
-            console.log('Ending call');
-            pc1.close();
-            pc2.close();
-            pc1 = null;
-            pc2 = null;
-            hangupButton.disabled = true;
-            callButton.disabled = false;
-        }
     </script>
 
 </body>
