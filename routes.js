@@ -9,9 +9,24 @@ router.get('/', (req, res) => {
     })
 })
 
-router.get('/ready', function (req, res) {
-    console.log("ready");
+router.get('/webcam', function (req, res) {
+    
+    res.render('webcam.ejs', {
+        data: {},
+        errors: {},
+        title: 'Webcam'
+    })
+    
+})
 
+router.get('/webcam3', function (req, res) {
+    
+    res.render('webcam3.ejs', {
+        data: {},
+        errors: {},
+        title: 'Webcam'
+    })
+    
 })
 
 module.exports = function (io) {
@@ -24,11 +39,12 @@ module.exports = function (io) {
 
         socket.on('ready', (params, callback) => {
         
-            socket.join(params.chat_room)
+            //socket.join(params.chat_room)
             socket.join(params.signal_room)
-            // socket.emit runs function for current user and not for rest users
-            socket.broadcast.to(params).emit('announce', {message: 'New client in the '+params+' room joined.'})
-        
+            
+            // socket.emit runs function for current user and not for rest users        
+            socket.broadcast.to(params.signal_room).emit('announce', {message: 'New client in the '+params.signal_room+' room joined.'})
+            console.log("ready...");
         })
 
         socket.on('send', (params, callback)=>{
@@ -38,11 +54,25 @@ module.exports = function (io) {
             })
         })
 
-        socket.on('signal', (params)=>{
-            socket.broadcast.to(params.room).emit('signalling_message', {
-                type: params.type,
+        socket.on('endcall', (params)=>{
+            socket.broadcast.to(params.room).emit('announce', {
                 message: params.message
-            })
+            });
+        })
+
+        // socket.on('signal', (params)=>{
+        //     socket.broadcast.to(params.room).emit('signalling_message', {
+        //         type: params.type,
+        //         message: params.message
+        //     })
+        //     console.log("signal....");
+        //     console.log(params);
+        // })
+
+        socket.on('message', (message)=>{
+            console.log("send message", message);
+            socket.broadcast.emit('message', message); //for webcam.ejs
+            //socket.broadcast.emit('message', {data:message}); // for webcam3.ejs 
         })
 
     })

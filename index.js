@@ -14,11 +14,12 @@ const routes = require('./routes')(app.io)
 
 app.set('view engine', 'ejs')
 
-const middleware = [
-    express.static(path.join(__dirname+'public'))
-]
+// const middleware = [
+//     express.static(path.join(__dirname+'/public'))
+// ]
+const publicPath = path.join(__dirname, '/public')
 
-app.use(middleware)
+app.use(express.static(publicPath))
 
 app.use('/', routes);
 
