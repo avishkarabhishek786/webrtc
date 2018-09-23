@@ -116,6 +116,11 @@
                 if (desc) {
                     // if we get an offer, we need to reply with an answer
                     if (desc.type == 'offer') {
+                        console.log('signalingState: '+pc.signalingState);
+                        
+                        // workaround for chrome signalingState error (https://stackoverflow.com/questions/51099707/peerconnection-cannot-create-an-answer)
+                        if (pc.signalingState != "stable") return; 
+
                         await pc.setRemoteDescription(desc);
                         const stream = await navigator.mediaDevices.getUserMedia(constraints);
                         stream.getTracks().forEach((track) => pc.addTrack(track, stream));
