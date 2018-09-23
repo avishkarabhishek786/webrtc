@@ -65,8 +65,8 @@ module.exports = function (io) {
 
         socket.on('message', (message)=>{
             console.log("send message", message);
-            //socket.broadcast.emit('message', message); //for webcam.ejs
-            socket.broadcast.emit('message', {data:message}); // for webcam3.ejs 
+            socket.broadcast.emit('message', message); //for webcam.ejs
+            //socket.broadcast.emit('message', {data:message}); // for webcam3.ejs 
         })
 
     })

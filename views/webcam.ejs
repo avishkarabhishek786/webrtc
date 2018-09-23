@@ -24,71 +24,42 @@
 
     <div id="signalling_area">Signalling messages: <br></div>
 
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script>
-
         const selfView = document.querySelector("#selfView");
         const remoteView = document.querySelector("#remoteView");
 
-         const startButton = document.getElementById('startButton');
+        const startButton = document.getElementById('startButton');
         // const callButton = document.getElementById('callButton');
         // const hangupButton = document.getElementById('hangupButton');
 
         var chatArea = document.querySelector("#chatArea");
         var signallingArea = document.querySelector("#signalling_area");
 
-        var ROOM = "chat";
+        //var ROOM = "chat";
         var SIGNAL_ROOM = "signal_room";
 
-        // Signaling Channel (PubNub, Firebase, Socket.io, etc.)
-        function SignalingChannel(peerConnection) {
-            // Setup the signaling channel here
-            this.peerConnection = peerConnection;
+        const socket = io();
 
-            this.peerConnection.on('connect', function () {
-                console.log('Connected to server!');
+        socket.on('connect', function () {
+            console.log('Connected to server!');
+            startButton.onclick = start;
+            // callButton.onclick = call;
+            // hangupButton.onclick = hangup;
+        });
 
-                 startButton.onclick = start;
-                // callButton.onclick = call;
-                // hangupButton.onclick = hangup;
+        socket.emit('ready', {
+            "signal_room": SIGNAL_ROOM
+        }, logError);
+        
+        socket.on('disconnect', function () {
+            console.log('Disconnected to server!');
+        });
 
-            });
-
-            this.peerConnection.emit('ready', {
-                "chat_room": ROOM,
-                "signal_room": SIGNAL_ROOM
-            }, logError);
-
-            this.peerConnection.on('disconnect', function () {
-                console.log('Disconnected to server!');
-            });
-
-        }
-
-        SignalingChannel.prototype.send = function (message) {
-            // Send messages using your favorite real-time network
-            //this.peerConnection.emit(name, message, logError);
-            this.peerConnection.emit('message', message, logError);
-        };
-
-        // SignalingChannel.prototype.onmessage = function (message) {
-        //     // If we get a sdp we have to sign and return it
-        //     if (message.sdp != null) {
-        //         var that = this;
-        //         this.peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
-        //             that.peerConnection.createAnswer(function (description) {
-        //                 that.send(description);
-        //             });
-        //         });
-        //     } else {
-        //         this.peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
-        //     }
-        // };
-
-        const socket = io();    
-        const signaling = new SignalingChannel(socket); // handles JSON.stringify/parse
+        //const signaling = new SignalingChannel(); // handles JSON.stringify/parse
         const constraints = {
-            audio: false,
+            audio: true,
             video: true
         };
         const configuration = {
@@ -101,7 +72,7 @@
         // send any ice candidates to the other peer
         pc.onicecandidate = ({
             candidate
-        }) => signaling.send({
+        }) => socket.emit('message', {
             candidate
         });
 
@@ -110,9 +81,7 @@
             try {
                 await pc.setLocalDescription(await pc.createOffer());
                 // send the offer to the other peer
-                console.log(pc.localDescription);
-                
-                signaling.send({
+                socket.emit('message', {
                     desc: pc.localDescription
                 });
             } catch (err) {
@@ -139,21 +108,19 @@
             }
         }
 
-        signaling.onmessage = async ({
+        socket.on('message', async ({
             desc,
             candidate
         }) => {
             try {
                 if (desc) {
-                    console.log(desc);
-                    
                     // if we get an offer, we need to reply with an answer
                     if (desc.type == 'offer') {
                         await pc.setRemoteDescription(desc);
                         const stream = await navigator.mediaDevices.getUserMedia(constraints);
                         stream.getTracks().forEach((track) => pc.addTrack(track, stream));
                         await pc.setLocalDescription(await pc.createAnswer());
-                        signaling.send({
+                        socket.emit('message', {
                             desc: pc.localDescription
                         });
                     } else if (desc.type == 'answer') {
@@ -162,31 +129,21 @@
                         console.log('Unsupported SDP type. Your code may differ here.');
                     }
                 } else if (candidate) {
-                    console.log(candidate);
-                    
                     await pc.addIceCandidate(candidate);
                 }
             } catch (err) {
                 console.error(err);
             }
-        };
+        });
+
+        // socket.on('message', (params)=>{
+        //     console.log("io message");
+        //     signaling.onmessage(params);
+        // });
 
         function logError(error) {
             console.error(error);
         }
-
-        // sendMessage.addEventListener("click", function(e) {
-        //     socket.emit('send', {"author":myName.value, "message":myMessage.value, "room":ROOM});
-        //     e.preventDefault();
-        // }, false);
-
-        // Socket calls
-
-        socket.on('message', (params)=>{
-            console.log("io message");
-            signaling.onmessage(params);
-        });
-
     </script>
 
 </body>

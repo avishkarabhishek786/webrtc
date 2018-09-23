@@ -109,11 +109,19 @@
                 console.log("ice candidate sent: ", JSON.stringify({
                     candidate: event.candidate
                 }));
-                
+
             };
+
+
+            var isNegotiating = false; // Workaround for Chrome: skip nested negotiations
 
             // let the "negotiationneeded" event trigger offer generation
             pc.onnegotiationneeded = async () => {
+                if (isNegotiating) {
+                    console.log("SKIP nested negotiations");
+                    return;
+                }
+                isNegotiating = true;
                 try {
                     await pc.setLocalDescription(await pc.createOffer());
                     // send the offer to the other peer
@@ -126,8 +134,12 @@
 
                 } catch (err) {
                     console.error(err);
-                  }
+                }
             };
+
+            pc.onsignalingstatechange = (e) => { // Workaround for Chrome: skip nested negotiations
+                isNegotiating = (pc.signalingState != "stable");
+            }
 
             try {
                 // get a local stream, show it in a self-view and add it to be sent
@@ -140,7 +152,7 @@
                 stream.getTracks().forEach((track) => pc.addTrack(track, stream));
                 // Render the media even before ontrack fires.
                 console.log("media render...");
-                
+
                 remoteView.srcObject = new MediaStream(pc.getReceivers().map((r) => r.track));
             } catch (err) {
                 console.error(err);
@@ -153,17 +165,17 @@
             try {
                 //console.log(typeof event);
                 //console.log(event);
-                
+
                 const message = JSON.parse(event.data);
 
                 if (message.desc) {
                     const desc = message.desc;
                     console.log("desc", desc);
-                    
+
                     // if we get an offer, we need to reply with an answer
                     if (desc.type == 'offer') {
                         console.log("offer");
-                        
+
                         await pc.setRemoteDescription(desc);
                         await pc.setLocalDescription(await pc.createAnswer());
                         signaling.send(JSON.stringify({
@@ -171,12 +183,12 @@
                         }));
                     } else {
                         console.log("answer", desc);
-                        
+
                         await pc.setRemoteDescription(desc);
                     }
                 } else {
                     console.log("ice candidate", message.candidate);
-                    
+
                     if (message.candidate) {
                         await pc.addIceCandidate(message.candidate);
                     }
