@@ -52,7 +52,7 @@
         socket.emit('ready', {
             "signal_room": SIGNAL_ROOM
         }, logError);
-        
+
         socket.on('disconnect', function () {
             console.log('Disconnected to server!');
         });
@@ -116,18 +116,23 @@
                 if (desc) {
                     // if we get an offer, we need to reply with an answer
                     if (desc.type == 'offer') {
-                        console.log('signalingState: '+pc.signalingState);
-                        
-                        // workaround for chrome signalingState error (https://stackoverflow.com/questions/51099707/peerconnection-cannot-create-an-answer)
-                        if (pc.signalingState != "stable") return; 
+                        console.log('signalingState: ' + pc.signalingState);
 
-                        await pc.setRemoteDescription(desc);
-                        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-                        await pc.setLocalDescription(await pc.createAnswer());
-                        socket.emit('message', {
-                            desc: pc.localDescription
-                        });
+                        // workaround for chrome signalingState error (https://stackoverflow.com/questions/51099707/peerconnection-cannot-create-an-answer)
+                        if (pc.signalingState != "stable") return;
+                        console.log(" crossed: " + pc.signalingState);
+
+                        try {
+                            await pc.setRemoteDescription(desc);
+                            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                             stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+                            await pc.setLocalDescription(await pc.createAnswer());
+                            socket.emit('message', {
+                                desc: pc.localDescription
+                            });
+                        } catch (error) {
+                            console.log(error);
+                        }
                     } else if (desc.type == 'answer') {
                         await pc.setRemoteDescription(desc);
                     } else {
@@ -140,11 +145,6 @@
                 console.error(err);
             }
         });
-
-        // socket.on('message', (params)=>{
-        //     console.log("io message");
-        //     signaling.onmessage(params);
-        // });
 
         function logError(error) {
             console.error(error);
